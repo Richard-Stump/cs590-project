@@ -6,12 +6,25 @@ using Microsoft.MixedReality.Toolkit.SpatialAwareness;
 
 public class TestScript : MonoBehaviour, IMixedRealitySpatialAwarenessObservationHandler<SpatialAwarenessSceneObject>
 {
-    private IMixedRealitySceneUnderstandingObserver observer;
 
+    [SerializeField]
+    private bool InstantiatePrefabs = false;
+    [SerializeField]
+    private GameObject InstantiatedPrefab = null;
+    [SerializeField]
+    private Transform InstantiatedParent = null;
+
+
+    private IMixedRealitySceneUnderstandingObserver observer;
 
     private List<GameObject> instantiatedPrefabs;
 
     private Dictionary<SpatialAwarenessSurfaceTypes, Dictionary<int, SpatialAwarenessSceneObject>> observedSceneObjects;
+
+    /// <summary>
+    /// Collection that tracks the IDs and count of updates for each active spatial awareness mesh.
+    /// </summary>
+    private Dictionary<int, uint> meshUpdateData = new Dictionary<int, uint>();
 
     private bool isRegistered = false;
 
@@ -85,16 +98,133 @@ public class TestScript : MonoBehaviour, IMixedRealitySpatialAwarenessObservatio
 
     public void OnObservationAdded(MixedRealitySpatialAwarenessEventData<SpatialAwarenessSceneObject> eventData)
     {
-        Debug.Log("TestScript: Observation Added");
+        // This method called everytime a SceneObject created by the SU observer
+        // The eventData contains everything you need do something useful
+
+        AddToData(eventData.Id);
+
+        if (observedSceneObjects.TryGetValue(eventData.SpatialObject.SurfaceType, out Dictionary<int, SpatialAwarenessSceneObject> sceneObjectDict))
+        {
+            sceneObjectDict.Add(eventData.Id, eventData.SpatialObject);
+        }
+        else
+        {
+            observedSceneObjects.Add(eventData.SpatialObject.SurfaceType, new Dictionary<int, SpatialAwarenessSceneObject> { { eventData.Id, eventData.SpatialObject } });
+        }
+
+        if (InstantiatePrefabs && eventData.SpatialObject.Quads.Count > 0)
+        {
+            var prefab = Instantiate(InstantiatedPrefab);
+            prefab.transform.SetPositionAndRotation(eventData.SpatialObject.Position, eventData.SpatialObject.Rotation);
+            float sx = eventData.SpatialObject.Quads[0].Extents.x;
+            float sy = eventData.SpatialObject.Quads[0].Extents.y;
+            prefab.transform.localScale = new Vector3(sx, sy, .1f);
+            if (InstantiatedParent)
+            {
+                prefab.transform.SetParent(InstantiatedParent);
+            }
+            instantiatedPrefabs.Add(prefab);
+        }
+        else
+        {
+            foreach (var quad in eventData.SpatialObject.Quads)
+            {
+                quad.GameObject.GetComponent<Renderer>().material.color = ColorForSurfaceType(eventData.SpatialObject.SurfaceType);
+            }
+
+        }
     }
 
     public void OnObservationUpdated(MixedRealitySpatialAwarenessEventData<SpatialAwarenessSceneObject> eventData)
     {
-        Debug.Log("TestScript: Observation Updated");
+        UpdateData(eventData.Id);
+
+        if (observedSceneObjects.TryGetValue(eventData.SpatialObject.SurfaceType, out Dictionary<int, SpatialAwarenessSceneObject> sceneObjectDict))
+        {
+            observedSceneObjects[eventData.SpatialObject.SurfaceType][eventData.Id] = eventData.SpatialObject;
+        }
+        else
+        {
+            observedSceneObjects.Add(eventData.SpatialObject.SurfaceType, new Dictionary<int, SpatialAwarenessSceneObject> { { eventData.Id, eventData.SpatialObject } });
+        }
     }
 
     public void OnObservationRemoved(MixedRealitySpatialAwarenessEventData<SpatialAwarenessSceneObject> eventData)
     {
-        Debug.Log("TestScript: Observation Removed");
+        RemoveFromData(eventData.Id);
+
+        foreach (var sceneObjectDict in observedSceneObjects.Values)
+        {
+            sceneObjectDict?.Remove(eventData.Id);
+        }
+    }
+
+    /// <summary>
+    /// Gets the color of the given surface type
+    /// </summary>
+    /// <param name="surfaceType">The surface type to get color for</param>
+    /// <returns>The color of the type</returns>
+    private Color ColorForSurfaceType(SpatialAwarenessSurfaceTypes surfaceType)
+    {
+        // shout-out to solarized!
+
+        switch (surfaceType)
+        {
+            case SpatialAwarenessSurfaceTypes.Unknown:
+                return new Color32(220, 50, 47, 255); // red
+            case SpatialAwarenessSurfaceTypes.Floor:
+                return new Color32(38, 139, 210, 255); // blue
+            case SpatialAwarenessSurfaceTypes.Ceiling:
+                return new Color32(108, 113, 196, 255); // violet
+            case SpatialAwarenessSurfaceTypes.Wall:
+                return new Color32(181, 137, 0, 255); // yellow
+            case SpatialAwarenessSurfaceTypes.Platform:
+                return new Color32(133, 153, 0, 255); // green
+            case SpatialAwarenessSurfaceTypes.Background:
+                return new Color32(203, 75, 22, 255); // orange
+            case SpatialAwarenessSurfaceTypes.World:
+                return new Color32(211, 54, 130, 255); // magenta
+            case SpatialAwarenessSurfaceTypes.Inferred:
+                return new Color32(42, 161, 152, 255); // cyan
+            default:
+                return new Color32(220, 50, 47, 255); // red
+        }
+    }
+    /// <summary>
+    /// Increments the update count of the mesh with the id.
+    /// </summary>
+    protected void UpdateData(int eventDataId)
+    {
+        // A mesh has been updated. Find it and increment the update count.
+        if (meshUpdateData.TryGetValue(eventDataId, out uint updateCount))
+        {
+            // Set the new update count.
+            meshUpdateData[eventDataId] = ++updateCount;
+
+            Debug.Log($"Mesh {eventDataId} has been updated {updateCount} times.");
+        }
+    }
+
+    /// <summary>
+    /// Records the mesh id when it is first added.
+    /// </summary>
+    protected void AddToData(int eventDataId)
+    {
+        // A new mesh has been added.
+        Debug.Log($"Started tracking mesh {eventDataId}");
+        meshUpdateData.Add(eventDataId, 0);
+    }
+
+    /// <summary>
+    /// Removes the mesh id.
+    /// </summary> 
+    protected void RemoveFromData(int eventDataId)
+    {
+        // A mesh has been removed. We no longer need to track the count of updates.
+        if (meshUpdateData.ContainsKey(eventDataId))
+        {
+            Debug.Log($"No longer tracking mesh {eventDataId}.");
+            meshUpdateData.Remove(eventDataId);
+        }
     }
 }
