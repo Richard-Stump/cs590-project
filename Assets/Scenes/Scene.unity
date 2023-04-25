@@ -634,6 +634,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1879776029}
   - component: {fileID: 1879776028}
+  - component: {fileID: 1879776030}
   m_Layer: 0
   m_Name: SceneObserver
   m_TagString: Untagged
@@ -668,6 +669,22 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 5
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1879776030
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1879776027}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef9c3786708621a4ca504f2c3b56aace, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SpatialAwarenessSystemType:
+    reference: Microsoft.MixedReality.Toolkit.SpatialAwareness.MixedRealitySpatialAwarenessSystem,
+      Microsoft.MixedReality.Toolkit.Services.SpatialAwarenessSystem
+  profile: {fileID: 11400000, guid: b48b33d116dbebf418fb66dff48d8e1b, type: 2}
 --- !u!1 &2143390562
 GameObject:
   m_ObjectHideFlags: 0
