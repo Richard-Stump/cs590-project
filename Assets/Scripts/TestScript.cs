@@ -227,4 +227,9 @@ public class TestScript : MonoBehaviour, IMixedRealitySpatialAwarenessObservatio
             meshUpdateData.Remove(eventDataId);
         }
     }
+
+    public void Save()
+    {
+
+    }
 }
